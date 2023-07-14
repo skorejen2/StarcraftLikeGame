@@ -10,10 +10,11 @@
 #include <string.h>
 #include <time.h>
 
-#define UNIT_NAME_LETTERS {'K', 'S', 'A', 'P', 'C', 'R', 'W'}
+
 #define UNIT_NAME_LETTERS_COUNT 7
 #define MAX_COMMAND_NUMBER 100
 
+#define UNIT_NAME_LETTERS {'K', 'S', 'A', 'P', 'C', 'R', 'W'}
 UnitData getKnightData() {
     UnitData knight;
     knight.durability = 70;
@@ -95,6 +96,29 @@ UnitData getBaseData() {
 }
 
 
+// Function to get unit data based on a letter
+UnitData getUnitData(char letter) {
+    switch (letter) {
+        case 'K':
+            return getKnightData();
+        case 'S':
+            return getSwordsmanData();
+        case 'A':
+            return getArcherData();
+        case 'P':
+            return getPikemanData();
+        case 'C':
+            return getCatapultData();
+        case 'R':
+            return getRamData();
+        case 'W':
+            return getWorkerData();
+        default:
+            printf("Invalid unit letter: %c\n", letter);
+            UnitData invalidData = {0, 0, 0, 0, 0};  // Default invalid data
+            return invalidData;
+    }
+}
 
 #define MAX_UNITS 1000
 
@@ -212,6 +236,9 @@ void freeDataArray(int** dataArray, int numRows) {
     free(dataArray);
 }
 
+
+// Read data from status.txt file
+// units in gameStatus include all units and bases
 struct GameStatus readGameStatus(char* statusFileName) {
     struct GameStatus gameStatus;
     
@@ -273,13 +300,12 @@ struct GameStatus readGameStatus(char* statusFileName) {
 int freeAllocatedMapMemory(int** dataArray, int numRows, int numCols) {
      if (dataArray != NULL) {
         // Print the data array
-        for (int i = 0; i < numRows; i++) {
-            for (int j = 0; j < numCols; j++) {
-                printf("%d ", dataArray[i][j]);
-            }
-            printf("\n");
-        }
-        
+        // for (int i = 0; i < numRows; i++) {
+        //     for (int j = 0; j < numCols; j++) {
+        //         printf("%d ", dataArray[i][j]);
+        //     }
+        //     printf("\n");
+        // }
         // Free the allocated memory
         freeDataArray(dataArray, numRows);
     }
@@ -466,10 +492,6 @@ return base;
 
 }
 
-void buildUnits() {
-    
-}
-
 void freeAllocatedCommandStringsMemory(char** stringArray, int arraySize) {
     // Free up the memory for each string in the array
     for (int i = 0; i < arraySize; i++) {
@@ -487,8 +509,6 @@ bool allyBaseIsProducingUnit(Unit allyBase) {
     }
 }
 
-
-
 int generateRandomNumberFromZeroTo(int n) {
         // Seed the random number generator with the current time
     srand(time(NULL));
@@ -502,70 +522,375 @@ int generateRandomNumberFromZeroTo(int n) {
     return randomNumber;
 }
 
+// Function to determine the affordable unit based on gold
+char getAffordableUnitLetter(int gold) {
+    srand(time(NULL)); // Initialize random seed
 
-char* generateCommandBasedOnFile(char* statusFileName, char* mapFileName, char** commandsStrings, int comStringsNum) {
+    if (gold >= getRamData().cost) {
+        return 'R';
+    } else if (gold >= getCatapultData().cost) {
+        return 'C';
+    } else if (gold >= getKnightData().cost) {
+        return 'K';
+    } else if (gold >= getSwordsmanData().cost || gold >= getArcherData().cost) {
+        // Randomly choose between 'S' and 'A'
+        int randomIndex = rand() % 2;
+        if (randomIndex == 0) {
+            return 'S';
+        } else {
+            return 'A';
+        }
+    } else if (gold >= getPikemanData().cost) {
+        return 'P';
+    } else if (gold >= getWorkerData().cost) {
+        return 'W';
+    } else {
+        return '0';
+    }
+}
+
+// Unit 1 is the one attacking
+// According to paper attack range between units is counted as D = |x1 - x2| + |y1 - y2|
+bool isInAttackRange(Unit unit1, Unit unit2) {
+
+    int distance = abs(unit1.Xcord - unit2.Xcord) + abs(unit1.Ycord - unit2.Ycord);
+    UnitData unit1Data = getUnitData(unit1.type);
+
+    // Compare the squared distances to avoid using square root
+    if (distance <= unit1Data.attackRange) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool isUnitDefeated(Unit attackingUnit, Unit defendingUnit) {
+    char attackingUnitType = attackingUnit.type;
+    char defendingUnitType = defendingUnit.type;
+    // Damage table
+    int damageTable[8][8] = {
+        {35, 35, 35, 35, 35, 50, 35, 35},
+        {30, 30, 30, 20, 20, 30, 30, 30},
+        {15, 15, 15, 15, 10, 10, 15, 15},
+        {35, 15, 15, 15, 15, 10, 15, 10},
+        {40, 40, 40, 40, 40, 40, 40, 50},
+        {10, 10, 10, 10, 10, 10, 10, 50},
+        {5, 5, 5, 5, 5, 5, 5, 1}
+    };
+
+    // Convert unit types to indices
+    int attackingIndex, defendingIndex;
+    switch (attackingUnitType) {
+        case 'K':
+            attackingIndex = 0;
+            break;
+        case 'S':
+            attackingIndex = 1;
+            break;
+        case 'A':
+            attackingIndex = 2;
+            break;
+        case 'P':
+            attackingIndex = 3;
+            break;
+        case 'C':
+            attackingIndex = 4;
+            break;
+        case 'R':
+            attackingIndex = 5;
+            break;
+        case 'W':
+            attackingIndex = 6;
+            break;
+        default:
+            return false;  // Invalid attacking unit type
+    }
+
+    switch (defendingUnitType) {
+        case 'K':
+            defendingIndex = 0;
+            break;
+        case 'S':
+            defendingIndex = 1;
+            break;
+        case 'A':
+            defendingIndex = 2;
+            break;
+        case 'P':
+            defendingIndex = 3;
+            break;
+        case 'C':
+            defendingIndex = 4;
+            break;
+        case 'R':
+            defendingIndex = 5;
+            break;
+        case 'W':
+            defendingIndex = 6;
+            break;
+        case 'B':
+            defendingIndex = 7;
+            break;
+        default:
+            return false;  // Invalid defending unit type
+    }
+
+    // Compare the attacking unit's damage with the defending unit's health
+    int damage = damageTable[attackingIndex][defendingIndex];
+    if (damage >= 0 && damage >= defendingUnit.health) {
+        return true;  // Unit is killed
+    } else {
+        return false;  // Unit survives
+    }
+}
+
+// In this function we're picking a Point from a path array which is presumably closest to the possible speed limit of the unit,
+// which should be at that index in the path array (e.g. path[speed]). That is not always the case because of how we 
+// calculate distance though, that's why we're decrementing count (same as speed) variable to match the furthest possible point
+Point getFurthestPossibleMovePointOnPath(Point* path, int pathLength, int speed) {
+    // Check if the path is shorter than the unit's speed
+    if (pathLength <= speed) {
+        // Return the last point on the path
+        return path[pathLength - 1];
+    } else {
+        // Calculate the index of the move point based on the unit's speed
+        int moveIndex = pathLength - speed;
+        Point startPoint = path[0];
+        Point assumedPoint = path[speed];
+        // Use formula inserted in the paper which is D = |x1 - x2| + |y1 - y2|
+        int rangeBetweenPoints = abs(startPoint.x - assumedPoint.x) + abs(startPoint.y - assumedPoint.y);
+        
+        
+        int count = speed;
+        while(rangeBetweenPoints>speed) {
+            count--;
+            assumedPoint = path[count];
+            rangeBetweenPoints = abs(startPoint.x - assumedPoint.x) + abs(startPoint.y - assumedPoint.y);
+        }
+        // Return the move point on the path
+        return path[count];
+    }
+}
 
 
-    struct GameStatus gameStatus = readGameStatus(statusFileName);
+#define MOVE_COMMAND 'M'
+#define ATTACK_COMMAND 'A'
+
+// Function responsible for generating a string of one command
+// Some of these are optional for different COMMANDS, therefore some of these can take values of 0 or '0'
+char* generateUnitCommand(char commandType, int unitID, int attackedUnitID, char builtUnitLetter, int cordX, int cordY) {
+    if(commandType == 'M') {
+        int stringLength = 8;
+         char* resultString = malloc(stringLength * sizeof(char));
+         sprintf(resultString, "%d %c %d %d", unitID, MOVE_COMMAND, cordX, cordY);
+         return resultString;
+    } else if (commandType == 'A') {
+        int stringLength = 6;
+        char* resultString = malloc(stringLength * sizeof(char));
+        sprintf(resultString, "%d %c %d", unitID, ATTACK_COMMAND, attackedUnitID);
+        return resultString;
+    }
+}
+
+
+// make Unit Decisions based on provided data and add those to commandsStrings
+void generateUnitDecisions(Unit unit, Unit* enemyUnits, int enemyUnitsNum, char** commandsStrings, int* comStringsNum, Point enemyBaseDest, int** mapArray, int numRows, int numCols) {
+
+    bool unitDefeated = false;
+    if(unit.type != 'B') {
+        if(unit.type != 'W') {
+            for(int i=0; i<enemyUnitsNum; i++) {
+                if(isInAttackRange(unit, enemyUnits[i])) {
+                    printf("Unit in attack range at %d %d\n", enemyUnits[i].Xcord, enemyUnits[i].Ycord);
+                    commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[i].ID, '0', 0, 0);
+                    (*comStringsNum)++;
+
+                    // check if unit gets killed
+                    if(isUnitDefeated(unit, enemyUnits[i])) {
+                        // if yes then also move the unit towards enemy base
+                        Point start;
+                        start.x = unit.Xcord;
+                        start.y = unit.Ycord;
+                        Point* path; // array of result Points that you can take along the way to destination (base)
+                        int pathLength;
+                        printf("Unit type: %c and ID: %d, defeated unit type: %c and ID: %d\n", unit.type, unit.ID, enemyUnits[i].type, enemyUnits[i].ID);
+                        findShortestPath(mapArray, start, enemyBaseDest, numRows, numCols, &path, &pathLength);
+
+                            for(int i=0; i<pathLength; i++) {
+                            printf("x: %d y: %d\n", path[i].x, path[i].y);
+                            }
+
+                        // write a command to move the unit towards enemy base
+                        int unitSpeed = getUnitData(unit.type).speed;
+                        Point furthestPossiblePoint = getFurthestPossibleMovePointOnPath(path, pathLength, unitSpeed);
+                        printf("Furthest possible point: %d %d\n", furthestPossiblePoint.x, furthestPossiblePoint.y);
+                        commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, '0', furthestPossiblePoint.x, furthestPossiblePoint.y);
+                        (*comStringsNum)++;
+
+                    } else {
+                        return;
+                    }
+                    
+                    
+                }
+            }
+
+            // if you didn't attack because noone was in range
+            if(!unitDefeated) {
+                
+            }
+
+
+
+            
+            // If you happen to be in range to attack enemy unit - attack
+            //  if u kill a unit, also make a move
+            //  if not, return
+            // If, not assert closest path to enemy base
+                // Check for possible enemy units to not stand on them
+                // If you happen to collide with enemy unit, move one path unit closer
+                // If you haven't attacked before, check for attack again
+
+            // do something if not worker
+
+        } else {
+            // do something if worker
+        }
+    }
+
+}
+
+Unit* getEnemyUnits(Unit* units, int unitsNum, int enemyUnitsNum) {
+
+    Unit* enemyUnits = (Unit*)malloc(enemyUnitsNum * sizeof(Unit));
+    int index = 0;
+    for (int i = 0; i < unitsNum; i++) {
+        if (units[i].affiliation == 'E') {
+            enemyUnits[index] = units[i];
+            index++;
+        }
+    }
+    return enemyUnits;
+}
+
+int countEnemyUnits(Unit* units, int unitsNum) {   
+
+    int count = 0;
+    for (int i = 0; i < unitsNum; i++) {
+        if (units[i].affiliation == 'E') {
+            count++;
+        }
+    }
+
+    if (count == 0) {
+        printf("No enemy units found.\n");
+        return 0;
+    }
+    return count;
+}
+
+int countAllyUnits(Unit* units, int unitsNum) {
+    int count = 0;
+    for (int i = 0; i < unitsNum; i++) {
+        if (units[i].affiliation == 'P') {
+            count++;
+        }
+    }
+
+    if (count == 0) {
+        printf("No ally units found.\n");
+        return 0;
+    }
+
+    return count;
+}
+
+Unit* getAllyUnits(Unit* units, int unitsNum, int allyUnitsNum) {
+    Unit* allyUnits = (Unit*)malloc(allyUnitsNum * sizeof(Unit));
+    int index = 0;
+    for (int i = 0; i < unitsNum; i++) {
+        if (units[i].affiliation == 'P') {
+            allyUnits[index] = units[i];
+            index++;
+        }
+    }
+
+    return allyUnits;
+}
+
+char* generateCommandBasedOnFile(char* statusFileName, char* mapFileName, char** commandsStrings, int* comStringsNum) {
     
-    int numRows, numCols;
-    int** dataArray = readDataFromMapFile(mapFileName, &numRows, &numCols);
+    struct GameStatus gameStatus = readGameStatus(statusFileName);
+    int enemyUnitsNum = countEnemyUnits(gameStatus.units, gameStatus.numUnits);
+    Unit* enemyUnits = getEnemyUnits(gameStatus.units, gameStatus.numUnits, enemyUnitsNum);
+    int allyUnitsNum = countAllyUnits(gameStatus.units, gameStatus.numUnits);
+    Unit* allyUnits = getAllyUnits(gameStatus.units, gameStatus.numUnits, allyUnitsNum);
     Unit allyBase = getAllyBaseData(gameStatus);
     Unit enemyBase = getEnemyBaseData(gameStatus);
 
-    printf("ally base cord: %d %d\n", allyBase.Xcord, allyBase.Ycord);
-    printf("enemy base cord: %d %d\n", enemyBase.Xcord, enemyBase.Ycord);
     Point start;
     start.x = allyBase.Xcord;
     start.y = allyBase.Ycord;
 
-    Point target;
-    target.x = enemyBase.Xcord;
-    target.y = enemyBase.Ycord;
+    Point enemyBaseDest;
+    enemyBaseDest.x = enemyBase.Xcord;
+    enemyBaseDest.y = enemyBase.Ycord;
 
-    Point* path; // array of result Points that you can take along the way to destination (base)
-    int pathLength;
 
-    findShortestPath(dataArray, start, target, numRows, numCols, &path, &pathLength);
+    printf("enemy units number: %d\n", enemyUnitsNum);
 
-    for(int i=0; i<pathLength; i++) {
-        printf("x: %d y: %d\n", path[i].x, path[i].y);
+    int numRows, numCols;
+    int** mapArray = readDataFromMapFile(mapFileName, &numRows, &numCols);
+
+    // generate command for each units
+    for(int i=0; i<allyUnitsNum;i++) {
+        generateUnitDecisions(allyUnits[i], enemyUnits, enemyUnitsNum, commandsStrings, comStringsNum, enemyBaseDest, mapArray, numRows, numCols);
     }
+
+    
+
+
+
     
     if(!allyBaseIsProducingUnit(allyBase)) { // if no units are being produced, produce a unit
         if(gameStatus.numUnits == 0){
         printf("There are: %d units/n", gameStatus.numUnits);
         } else {
-
+            
             // Start producing a Unit
             char unitNameLetters[UNIT_NAME_LETTERS_COUNT] = UNIT_NAME_LETTERS;
             
-            char randomUnitLetter = unitNameLetters[generateRandomNumberFromZeroTo(6)];
+            // char randomUnitLetter = unitNameLetters[generateRandomNumberFromZeroTo(6)];
+            // UnitData randomUnitData = getUnitData(randomUnitLetter);
             
+            char affordableUnitLetter = getAffordableUnitLetter(gameStatus.gold);
+
                 int stringLength = 6;
                 char* resultString = malloc(stringLength * sizeof(char));
-                sprintf(resultString, "%d %c %c", allyBase.ID, allyBase.type, randomUnitLetter);
+                sprintf(resultString, "%d %c %c", allyBase.ID, allyBase.type, affordableUnitLetter);
     
                 // Print the dynamically created string
                 printf("Result string: %s\n", resultString);
 
-                commandsStrings[comStringsNum] = resultString;
-                comStringsNum++;
+                commandsStrings[*comStringsNum] = resultString;
+                (*comStringsNum)++;
         }
     }
 
+    //makeUnitDecisions(enemyUnits, enemyUnitsNum, numRows, numCols, gameStatus, commandsStrings, comStringsNum);
+   
 
 
-    freeAllocatedMapMemory(dataArray, numRows, numCols);
+    freeAllocatedMapMemory(mapArray, numRows, numCols);
     freeAllocatedGameStatusMemory(&gameStatus);
-    
+    free(enemyUnits);
     // open file in read mode
 
     return commandsStrings[0];
 
 }
 
-int writeCommandIntoFile(char* commandString, char* fileString){
+int writeCommandsIntoFile(char** commandString, int* comStringsNum, char* fileString){
 
     FILE* file = fopen("rozkazy.txt", "w");  // Open file in write mode
 
@@ -573,9 +898,10 @@ int writeCommandIntoFile(char* commandString, char* fileString){
         printf("Failed to open the file.\n");
         return 1;
     }
-
-    // Write text to the file
-    fprintf(file, commandString);
+    
+    for (int i = 0; i < *comStringsNum; i++) {
+        fprintf(file, "%s\n", commandString[i]);
+    }
 
     // Close the file
     fclose(file);
@@ -616,14 +942,14 @@ int main(int argc, char* argv[]) {
     printf("Player One is generating a command...\n");
     char** commandsStrings = malloc(MAX_COMMAND_NUMBER * sizeof(char*));
     int comStringsNum = 0;
-    char* commandPlayerOne = generateCommandBasedOnFile(statusFileString, mapFileString, commandsStrings, comStringsNum);
+    generateCommandBasedOnFile(statusFileString, mapFileString, commandsStrings, &comStringsNum);
 
 
 
     printf("Writing command into a file...\n");
-    printf("COMMAND: %s\n", commandPlayerOne);
+    printf("COMMAND: %s\n", commandsStrings[0]);
     
-    writeCommandIntoFile(commandPlayerOne, ordersFileString);
+    writeCommandsIntoFile(commandsStrings, &comStringsNum, ordersFileString);
 
         // free allocated space for commands
     freeAllocatedCommandStringsMemory(commandsStrings, comStringsNum); 

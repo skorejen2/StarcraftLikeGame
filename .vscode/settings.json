@@ -9,6 +9,9 @@
     "deque": "c",
     "unordered_map": "c",
     "vector": "c",
-    "initializer_list": "c"
+    "initializer_list": "c",
+    "cmath": "c",
+    "cstdlib": "c",
+    "functional": "c"
   }
 }
