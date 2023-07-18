@@ -317,7 +317,6 @@ struct GameStatus readGameStatus(char *statusFileName)
     {
         strcpy(arrOfRows[count], rowFromFile);
         count++;
-        printf("%s\n", rowFromFile);
     }
     fclose(file);
 
@@ -338,20 +337,13 @@ struct GameStatus readGameStatus(char *statusFileName)
     return gameStatus;
 }
 
-int freeAllocatedMapMemory(int **dataArray, int numRows, int numCols)
+int freeAllocatedMapMemory(int **dataArray, int numRows)
 {
     if (dataArray != NULL)
     {
-        // Print the data array
-        // for (int i = 0; i < numRows; i++) {
-        //     for (int j = 0; j < numCols; j++) {
-        //         printf("%d ", dataArray[i][j]);
-        //     }
-        //     printf("\n");
-        // }
-        // Free the allocated memory
         freeDataArray(dataArray, numRows);
     }
+    return 0; // Return a value indicating success or error status
 }
 
 void freeAllocatedGameStatusMemory(struct GameStatus *gameStatus)
@@ -577,8 +569,11 @@ bool allyBaseIsProducingUnit(Unit allyBase)
 
     if (allyBase.producedUnit == '0')
     {
-        printf("The base was not building anything\n");
+        printf("The base is not producing anything\n");
+        return false;
     }
+
+    return true;
 }
 
 int generateRandomNumberFromZeroTo(int n)
@@ -760,7 +755,6 @@ int getFurthestPossibleMovePointOnPathIndex(Point *path, int pathLength, int spe
     else
     {
         // Calculate the index of the move point based on the unit's speed
-        int moveIndex = pathLength - speed;
         Point startPoint = path[0];
         Point assumedPoint = path[speed];
         // Use formula inserted in the paper which is D = |x1 - x2| + |y1 - y2|
@@ -779,7 +773,7 @@ int getFurthestPossibleMovePointOnPathIndex(Point *path, int pathLength, int spe
     }
 }
 
-Point validateFurthestPossiblePointWithEnemyUnits(Point *path, int pathLength, int speed, Unit *enemyUnits, int *enemyUnitsNum, int furthestPossiblePointIndex)
+Point validateFurthestPossiblePointWithEnemyUnits(Point *path, Unit *enemyUnits, int *enemyUnitsNum, int furthestPossiblePointIndex)
 {
     // check if the point is not occupied by enemy's unit, if it is count--
     for (int i = 0; i < (*enemyUnitsNum); i++)
@@ -805,7 +799,7 @@ Point validateFurthestPossiblePointWithEnemyUnits(Point *path, int pathLength, i
 
 // Function responsible for generating a string of one command
 // Some of these are optional for different COMMANDS, therefore some of these can take values of 0 or '0'
-char *generateUnitCommand(char commandType, int unitID, int attackedUnitID, char builtUnitLetter, int cordX, int cordY)
+char *generateUnitCommand(char commandType, int unitID, int attackedUnitID, int cordX, int cordY)
 {
     char *resultString = NULL;
     int stringLength = 0;
@@ -862,7 +856,7 @@ Point generateValidatedMovePointForUnit(Unit unit, Unit *enemyUnits, int *enemyU
     int unitSpeed = getUnitData(unit.type).speed;
     int furthestPossiblePointIndexSpeedValidated = getFurthestPossibleMovePointOnPathIndex(path, pathLength, unitSpeed);
 
-    Point furthestPossiblePoint = validateFurthestPossiblePointWithEnemyUnits(path, pathLength, unitSpeed, enemyUnits, enemyUnitsNum, furthestPossiblePointIndexSpeedValidated);
+    Point furthestPossiblePoint = validateFurthestPossiblePointWithEnemyUnits(path, enemyUnits, enemyUnitsNum, furthestPossiblePointIndexSpeedValidated);
 
     return furthestPossiblePoint;
 }
@@ -912,7 +906,6 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
 {
 
     bool attacked = false;
-    bool moved = false;
 
     if (unit.type != 'B')
     {
@@ -923,7 +916,7 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
             if (indexOfUnitInRange != -1)
             {
                 printf("Unit in attack range at %d %d\n", enemyUnits[indexOfUnitInRange].Xcord, enemyUnits[indexOfUnitInRange].Ycord);
-                commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[indexOfUnitInRange].ID, '0', 0, 0);
+                commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[indexOfUnitInRange].ID, 0, 0);
                 (*comStringsNum)++;
                 attacked = true;
 
@@ -943,9 +936,9 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
                     Point furthestPossiblePoint = generateValidatedMovePointForUnit(unit, enemyUnits, enemyUnitsNum, enemyBaseDest, mapArray, numRows, numCols);
                     printf("Unit type: %c and ID: %d, defeated unit type: %c and ID: %d\n", unit.type, unit.ID, enemyUnits[indexOfUnitInRange].type, enemyUnits[indexOfUnitInRange].ID);
 
-                    commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, '0', furthestPossiblePoint.x, furthestPossiblePoint.y);
+                    commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, furthestPossiblePoint.x, furthestPossiblePoint.y);
                     (*comStringsNum)++;
-                    moved = true;
+
                     removeUnitFromEnemyListAtIndex(enemyUnits, enemyUnitsNum, indexOfUnitInRange); // if unit is defeated also remove it from enemy list
 
                     return;
@@ -960,9 +953,8 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
 
             Point furthestPossiblePoint = generateValidatedMovePointForUnit(unit, enemyUnits, enemyUnitsNum, enemyBaseDest, mapArray, numRows, numCols);
 
-            commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, '0', furthestPossiblePoint.x, furthestPossiblePoint.y);
+            commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, furthestPossiblePoint.x, furthestPossiblePoint.y);
             (*comStringsNum)++;
-            moved = true;
 
             // update coordinates after move
             unit.Xcord = furthestPossiblePoint.x;
@@ -974,7 +966,7 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
             {
                 // if yes attack
 
-                commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[enemyUnitInRangeIndex].ID, '0', 0, 0);
+                commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[enemyUnitInRangeIndex].ID, 0, 0);
                 (*comStringsNum)++;
                 if (isUnitDefeated(unit, enemyUnits[enemyUnitInRangeIndex]))
                 { // if unit gets defeated delete it from unit list
@@ -1001,7 +993,7 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
             printf("Closest mine point is at %d %d\n", closestMinePoint.x, closestMinePoint.y);
 
             Point furthestPossiblePoint = generateValidatedMovePointForUnit(unit, enemyUnits, enemyUnitsNum, closestMinePoint, mapArray, numRows, numCols);
-            commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, '0', furthestPossiblePoint.x, furthestPossiblePoint.y);
+            commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, furthestPossiblePoint.x, furthestPossiblePoint.y);
             (*comStringsNum)++;
         }
     }
@@ -1090,10 +1082,6 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
     Unit allyBase = getAllyBaseData(gameStatus);
     Unit enemyBase = getEnemyBaseData(gameStatus);
 
-    Point start;
-    start.x = allyBase.Xcord;
-    start.y = allyBase.Ycord;
-
     Point enemyBaseDest;
     enemyBaseDest.x = enemyBase.Xcord;
     enemyBaseDest.y = enemyBase.Ycord;
@@ -1117,13 +1105,7 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
         }
         else
         {
-
-            // Start producing a Unit
-            char unitNameLetters[UNIT_NAME_LETTERS_COUNT] = UNIT_NAME_LETTERS;
-
-            // char randomUnitLetter = unitNameLetters[generateRandomNumberFromZeroTo(6)];
-            // UnitData randomUnitData = getUnitData(randomUnitLetter);
-
+            // always try to build the most expensive unit u can afford
             char affordableUnitLetter = getAffordableUnitLetter(gameStatus.gold);
 
             // if units < 3 build 3 knights
@@ -1142,9 +1124,6 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
             char *resultString = malloc(stringLength * sizeof(char));
             sprintf(resultString, "%d %c %c", allyBase.ID, allyBase.type, affordableUnitLetter);
 
-            // Print the dynamically created string
-            // printf("Result string: %s\n", resultString);
-
             commandsStrings[*comStringsNum] = resultString;
             (*comStringsNum)++;
         }
@@ -1152,7 +1131,7 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
 
     // makeUnitDecisions(enemyUnits, enemyUnitsNum, numRows, numCols, gameStatus, commandsStrings, comStringsNum);
 
-    freeAllocatedMapMemory(mapArray, numRows, numCols);
+    freeAllocatedMapMemory(mapArray, numRows);
     freeAllocatedGameStatusMemory(&gameStatus);
     free(enemyUnits);
     // open file in read mode
@@ -1174,7 +1153,6 @@ int writeCommandsIntoFile(char **commandString, int *comStringsNum, char *fileSt
 
     for (int i = 0; i < *comStringsNum; i++)
     {
-        char *str = commandString[i]; // for debugging
         fprintf(file, "%s\n", commandString[i]);
     }
 
@@ -1198,7 +1176,6 @@ int main(int argc, char *argv[])
     char *mapFileString;
     char *statusFileString;
     char *ordersFileString;
-    char *timeoutInSeconds;
     printf("received arguments in number: %d \n", argc);
     if (argc >= 4)
     {
@@ -1206,10 +1183,6 @@ int main(int argc, char *argv[])
         statusFileString = argv[2];
         ordersFileString = argv[3];
         printf("Received name of file %s\n", argv[3]);
-        if (argc == 5)
-        {
-            timeoutInSeconds = argv[4];
-        }
     }
     else if (argc > 5 || argc <= 1)
     {

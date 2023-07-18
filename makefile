@@ -1,15 +1,10 @@
 CC = gcc
-CFLAGS = -Wall -Wextra
-LDFLAGS =
+CFLAGS = -Wall -Wextra -std=c99
 
-EXECUTABLE = playerOne
+all: playerOne
 
-.PHONY: all clean
-
-all: $(EXECUTABLE)
-
-$(EXECUTABLE): playerOne.c
-    $(CC) $(CFLAGS) playerOne.c -o $(EXECUTABLE)
+playerOne: playerOne.c
+	$(CC) $(CFLAGS) -o playerOne playerOne.c
 
 clean:
-    $(RM) $(EXECUTABLE)
+	rm -f playerOne
