@@ -160,6 +160,7 @@ struct GameStatus
     int numUnits;
 };
 
+// Function to convert one line from a file into a Unit
 Unit convertTextFileRowToUnit(char *unitRow)
 {
     Unit unit;
@@ -205,6 +206,7 @@ Unit convertTextFileRowToUnit(char *unitRow)
 
 // mape liczymy od 0 (w przypadku przykladu od 0 do 31)
 
+// Function to read the map and turn it into a 2D array
 int **readDataFromMapFile(const char *filename, int *numRows, int *numCols)
 {
     FILE *file = fopen(filename, "r");
@@ -273,7 +275,7 @@ void freeDataArray(int **dataArray, int numRows)
     free(dataArray);
 }
 
-// Read data from status.txt file
+// Function to read data from status.txt file
 // units in gameStatus include all units and bases
 struct GameStatus readGameStatus(char *statusFileName)
 {
@@ -366,26 +368,31 @@ typedef struct Node
     struct Node *parent;
 } Node;
 
+// Validating the new point
 bool isValid(int x, int y, int numRows, int numCols)
 {
     return (x >= 0 && x < numRows && y >= 0 && y < numCols);
 }
 
+// Checking if a point is an obstacle (a 9)
 bool isObstacle(int **grid, int x, int y)
 {
     return (grid[x][y] == 9);
 }
 
+// Check if the point is the destination
 bool isDestination(int **grid, int x, int y)
 {
     return (grid[x][y] == 2);
 }
 
+// Calculate variant H of A* algorithm
 int calculateH(int x, int y, int destX, int destY)
 {
     return abs(destX - x) + abs(destY - y);
 }
 
+// Function for finding the shortest path from Point start to Point dest (destination), implementing A* algorithm
 void findShortestPath(int **grid, Point start, Point dest, int numRows, int numCols, Point **path, int *pathLength)
 {
     int startX = start.x;
@@ -518,6 +525,7 @@ void findShortestPath(int **grid, Point start, Point dest, int numRows, int numC
     }
 }
 
+// Function for retrieving data of an ally base
 Unit getAllyBaseData(struct GameStatus gameStatus)
 {
     Unit base;
@@ -535,6 +543,7 @@ Unit getAllyBaseData(struct GameStatus gameStatus)
     return base;
 }
 
+// Function for retrieving data of an enemy Base
 Unit getEnemyBaseData(struct GameStatus gameStatus)
 {
 
@@ -564,6 +573,7 @@ void freeAllocatedCommandStringsMemory(char **stringArray, int arraySize)
     free(stringArray);
 }
 
+// Function for checking if an ally base is producing any units
 bool allyBaseIsProducingUnit(Unit allyBase)
 {
 
@@ -576,6 +586,7 @@ bool allyBaseIsProducingUnit(Unit allyBase)
     return true;
 }
 
+// Function for random number generation
 int generateRandomNumberFromZeroTo(int n)
 {
     // Seed the random number generator with the current time
@@ -634,6 +645,7 @@ char getAffordableUnitLetter(int gold)
     }
 }
 
+// Function for checking if unit2 is in attack range of unit1
 // Unit 1 is the one attacking
 // According to paper attack range between units is counted as D = |x1 - x2| + |y1 - y2|
 bool isInAttackRange(Unit unit1, Unit unit2)
@@ -653,6 +665,7 @@ bool isInAttackRange(Unit unit1, Unit unit2)
     }
 }
 
+// Function which checks if after an attack, the unit gets defeated
 bool isUnitDefeated(Unit attackingUnit, Unit defendingUnit)
 {
     char attackingUnitType = attackingUnit.type;
@@ -773,6 +786,7 @@ int getFurthestPossibleMovePointOnPathIndex(Point *path, int pathLength, int spe
     }
 }
 
+// Function for validating the furthest possible point for a unit on certain path, based on colliding enemy units
 Point validateFurthestPossiblePointWithEnemyUnits(Point *path, Unit *enemyUnits, int *enemyUnitsNum, int furthestPossiblePointIndex)
 {
     // check if the point is not occupied by enemy's unit, if it is count--
@@ -798,7 +812,7 @@ Point validateFurthestPossiblePointWithEnemyUnits(Point *path, Unit *enemyUnits,
 #define ATTACK_COMMAND 'A'
 
 // Function responsible for generating a string of one command
-// Some of these are optional for different COMMANDS, therefore some of these can take values of 0 or '0'
+// Some of these arguments are optional for different COMMANDS, therefore some of these can take values of 0 or NULL
 char *generateUnitCommand(char commandType, int unitID, int attackedUnitID, int cordX, int cordY)
 {
     char *resultString = NULL;
@@ -829,7 +843,7 @@ char *generateUnitCommand(char commandType, int unitID, int attackedUnitID, int 
     return resultString;
 }
 
-// Function should return an index of a enemy unit in range, otherwise return -1
+// Function returning an index of a enemy unit in range, otherwise return -1
 int checkIfUnitInRangeOfEnemy(Unit *enemyUnits, int *enemyUnitsNum, Unit unit)
 {
     for (int i = 0; i < *enemyUnitsNum; i++)
@@ -842,6 +856,7 @@ int checkIfUnitInRangeOfEnemy(Unit *enemyUnits, int *enemyUnitsNum, Unit unit)
     return -1;
 }
 
+// Function for returning furthest possible point based on unit's speed, obstacles and enemies
 Point generateValidatedMovePointForUnit(Unit unit, Unit *enemyUnits, int *enemyUnitsNum, Point destination, int **mapArray, int numRows, int numCols)
 {
     //, otherwise move the unit towards enemy base
@@ -861,6 +876,7 @@ Point generateValidatedMovePointForUnit(Unit unit, Unit *enemyUnits, int *enemyU
     return furthestPossiblePoint;
 }
 
+// Fucntion for removing enemy from a list of enemies (after defeating one)
 void removeUnitFromEnemyListAtIndex(Unit *enemyUnits, int *enemyUnitsNum, int indexOfUnit)
 {
     if (indexOfUnit < 0 || indexOfUnit >= *enemyUnitsNum)
@@ -878,6 +894,7 @@ void removeUnitFromEnemyListAtIndex(Unit *enemyUnits, int *enemyUnitsNum, int in
     (*enemyUnitsNum)--; // Update the count of enemy units
 }
 
+// Function for retrieving data about the closest Mine to send the worker to
 Point getClosestMinePoint(Unit allyBase, int **mapArray, int numRows, int numCols)
 {
     Point closestMinePoint;
@@ -999,6 +1016,7 @@ void generateUnitDecisions(Unit allyBase, Unit unit, Unit *enemyUnits, int *enem
     }
 }
 
+// Function returns an array of structs of all enemy units (including base)
 Unit *getEnemyUnits(Unit *units, int unitsNum, int *enemyUnitsNum)
 {
 
@@ -1015,6 +1033,7 @@ Unit *getEnemyUnits(Unit *units, int unitsNum, int *enemyUnitsNum)
     return enemyUnits;
 }
 
+// Function returns number of enemy units alive
 int countEnemyUnits(Unit *units, int unitsNum)
 {
 
@@ -1035,6 +1054,7 @@ int countEnemyUnits(Unit *units, int unitsNum)
     return count;
 }
 
+// Function returns number of ally units alive
 int countAllyUnits(Unit *units, int unitsNum)
 {
     int count = 0;
@@ -1055,6 +1075,7 @@ int countAllyUnits(Unit *units, int unitsNum)
     return count;
 }
 
+// Function returns an array of ally Units (including base)
 Unit *getAllyUnits(Unit *units, int unitsNum, int allyUnitsNum)
 {
     Unit *allyUnits = (Unit *)malloc(allyUnitsNum * sizeof(Unit));
@@ -1071,6 +1092,7 @@ Unit *getAllyUnits(Unit *units, int unitsNum, int allyUnitsNum)
     return allyUnits;
 }
 
+// Function for generating Commands for all units in the game
 char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char **commandsStrings, int *comStringsNum)
 {
 
@@ -1139,6 +1161,7 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
     return commandsStrings[0];
 }
 
+// Function for writing generated commands into a file (should be called "presumably rozkazy.txt")
 int writeCommandsIntoFile(char **commandString, int *comStringsNum, char *fileString)
 {
 
@@ -1160,14 +1183,6 @@ int writeCommandsIntoFile(char **commandString, int *comStringsNum, char *fileSt
     fclose(file);
 
     return 0;
-}
-
-unsigned long long rdtsc()
-{
-    unsigned int lo, hi;
-    __asm__ __volatile__("rdtsc"
-                         : "=a"(lo), "=d"(hi));
-    return ((unsigned long long)hi << 32) | lo;
 }
 
 int main(int argc, char *argv[])
