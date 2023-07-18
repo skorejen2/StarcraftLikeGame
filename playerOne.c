@@ -4,7 +4,6 @@
 #include <math.h>
 #include <ctype.h>
 #include <Windows.h>
-#include "units.h"
 #include <stdbool.h>
 #include <limits.h>
 #include <string.h>
@@ -17,6 +16,15 @@
     {                                     \
         'K', 'S', 'A', 'P', 'C', 'R', 'W' \
     }
+
+typedef struct
+{
+    int durability;  // Wytrzymałość
+    int speed;       // Prędkość
+    int cost;        // Koszt zakupu
+    int attackRange; // Zasięg ataku
+    int buildTime;   // Czas budowania
+} UnitData;
 
 UnitData getKnightData()
 {
@@ -1155,7 +1163,7 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
 int writeCommandsIntoFile(char **commandString, int *comStringsNum, char *fileString)
 {
 
-    FILE *file = fopen("rozkazy.txt", "w"); // Open file in write mode
+    FILE *file = fopen(fileString, "w"); // Open file in write mode
     // Write an empty string to clear the file
 
     if (file == NULL)
