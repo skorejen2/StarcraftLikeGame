@@ -1,1 +1,2 @@
-enemyUnitsNum
+
+    (*enemyUnitsNum)--;
