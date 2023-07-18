@@ -15,6 +15,7 @@
 #define MAX_COMMAND_NUMBER 100
 
 #define UNIT_NAME_LETTERS {'K', 'S', 'A', 'P', 'C', 'R', 'W'}
+
 UnitData getKnightData() {
     UnitData knight;
     knight.durability = 70;
@@ -564,6 +565,7 @@ bool isInAttackRange(Unit unit1, Unit unit2) {
     }
 }
 
+
 bool isUnitDefeated(Unit attackingUnit, Unit defendingUnit) {
     char attackingUnitType = attackingUnit.type;
     char defendingUnitType = defendingUnit.type;
@@ -647,11 +649,14 @@ bool isUnitDefeated(Unit attackingUnit, Unit defendingUnit) {
 // In this function we're picking a Point from a path array which is presumably closest to the possible speed limit of the unit,
 // which should be at that index in the path array (e.g. path[speed]). That is not always the case because of how we 
 // calculate distance though, that's why we're decrementing count (same as speed) variable to match the furthest possible point
-Point getFurthestPossibleMovePointOnPath(Point* path, int pathLength, int speed) {
+
+// we also need to validate the Point here because of the count > speed, otherwise there is no possible move towards enemy base
+
+int getFurthestPossibleMovePointOnPathIndex(Point* path, int pathLength, int speed) {
     // Check if the path is shorter than the unit's speed
     if (pathLength <= speed) {
         // Return the last point on the path
-        return path[pathLength - 1];
+        return pathLength - 1;
     } else {
         // Calculate the index of the move point based on the unit's speed
         int moveIndex = pathLength - speed;
@@ -667,9 +672,28 @@ Point getFurthestPossibleMovePointOnPath(Point* path, int pathLength, int speed)
             assumedPoint = path[count];
             rangeBetweenPoints = abs(startPoint.x - assumedPoint.x) + abs(startPoint.y - assumedPoint.y);
         }
+
+
         // Return the move point on the path
-        return path[count];
+        return count;
     }
+}
+
+Point validateFurthestPossiblePointWithEnemyUnits(Point* path, int pathLength, int speed, Unit* enemyUnits, int enemyUnitsNum, int furthestPossiblePointIndex) {
+         // check if the point is not occupied by enemy's unit, if it is count--
+    for(int i=0; i<enemyUnitsNum; i++) {
+            if(path[furthestPossiblePointIndex].x == enemyUnits[i].Xcord && path[furthestPossiblePointIndex].y == enemyUnits[i].Ycord) {
+                  furthestPossiblePointIndex--;
+                    }
+         }
+         
+                // if the path towards enemy base is occupied, return default Point (no possible move)
+       if(furthestPossiblePointIndex <= 0) {
+        Point defaultPoint;
+         return defaultPoint;
+       }
+
+      return path[furthestPossiblePointIndex];
 }
 
 
@@ -692,28 +716,23 @@ char* generateUnitCommand(char commandType, int unitID, int attackedUnitID, char
     }
 }
 
+// Function should return an index of a enemy unit in range, otherwise return -1
+int checkIfUnitInRangeOfEnemy(Unit* enemyUnits, int enemyUnitsNum, Unit unit) {
+    for(int i=0; i<enemyUnitsNum; i++) {
+        if(isInAttackRange(unit, enemyUnits[i])) {
+            return i;
+        }
+     }
+     return -1;
+}
 
-// make Unit Decisions based on provided data and add those to commandsStrings
-void generateUnitDecisions(Unit unit, Unit* enemyUnits, int enemyUnitsNum, char** commandsStrings, int* comStringsNum, Point enemyBaseDest, int** mapArray, int numRows, int numCols) {
-
-    bool unitDefeated = false;
-    if(unit.type != 'B') {
-        if(unit.type != 'W') {
-            for(int i=0; i<enemyUnitsNum; i++) {
-                if(isInAttackRange(unit, enemyUnits[i])) {
-                    printf("Unit in attack range at %d %d\n", enemyUnits[i].Xcord, enemyUnits[i].Ycord);
-                    commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[i].ID, '0', 0, 0);
-                    (*comStringsNum)++;
-
-                    // check if unit gets killed
-                    if(isUnitDefeated(unit, enemyUnits[i])) {
-                        // if yes then also move the unit towards enemy base
+Point generateValidatedMovePointForUnit(Unit unit, Unit* enemyUnits, int enemyUnitsNum, Point enemyBaseDest, int** mapArray, int numRows, int numCols) {
+                            //, otherwise move the unit towards enemy base
                         Point start;
                         start.x = unit.Xcord;
                         start.y = unit.Ycord;
                         Point* path; // array of result Points that you can take along the way to destination (base)
                         int pathLength;
-                        printf("Unit type: %c and ID: %d, defeated unit type: %c and ID: %d\n", unit.type, unit.ID, enemyUnits[i].type, enemyUnits[i].ID);
                         findShortestPath(mapArray, start, enemyBaseDest, numRows, numCols, &path, &pathLength);
 
                             for(int i=0; i<pathLength; i++) {
@@ -722,34 +741,92 @@ void generateUnitDecisions(Unit unit, Unit* enemyUnits, int enemyUnitsNum, char*
 
                         // write a command to move the unit towards enemy base
                         int unitSpeed = getUnitData(unit.type).speed;
-                        Point furthestPossiblePoint = getFurthestPossibleMovePointOnPath(path, pathLength, unitSpeed);
+                        int furthestPossiblePointIndexSpeedValidated = getFurthestPossibleMovePointOnPathIndex(path, pathLength, unitSpeed);
+
+                        Point furthestPossiblePoint = validateFurthestPossiblePointWithEnemyUnits(path, pathLength, unitSpeed, enemyUnits, enemyUnitsNum, furthestPossiblePointIndexSpeedValidated);
+
                         printf("Furthest possible point: %d %d\n", furthestPossiblePoint.x, furthestPossiblePoint.y);
+
+                        return furthestPossiblePoint;
+}
+
+void removeUnitFromEnemyListAtIndex(Unit* enemyUnits, int enemyUnitsNum, int indexOfUnit) {
+        if (indexOfUnit < 0 || indexOfUnit >= enemyUnitsNum) {
+        printf("Invalid index\n");
+        return;
+    }
+
+    // Shift elements to fill the gap
+    for (int i = indexOfUnit; i < enemyUnitsNum - 1; i++) {
+        enemyUnits[i] = enemyUnits[i + 1];
+    }
+}
+
+
+// make Unit Decisions based on provided data and add those to commandsStrings
+void generateUnitDecisions(Unit unit, Unit* enemyUnits, int enemyUnitsNum, char** commandsStrings, int* comStringsNum, Point enemyBaseDest, int** mapArray, int numRows, int numCols) {
+
+bool attacked = false;
+bool moved = false;
+
+    if(unit.type != 'B') {
+        if(unit.type != 'W') {
+                int indexOfUnitInRange = checkIfUnitInRangeOfEnemy(enemyUnits, enemyUnitsNum, unit);
+                // If enemy unit is in attack range, stay where you are and attack him
+                if(indexOfUnitInRange != -1) {
+                    printf("Unit in attack range at %d %d\n", enemyUnits[indexOfUnitInRange].Xcord, enemyUnits[indexOfUnitInRange].Ycord);
+                    commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[indexOfUnitInRange].ID, '0', 0, 0);
+                    (*comStringsNum)++;
+                    attacked = true;
+
+                    // check if enemy unit gets killed
+                    if(isUnitDefeated(unit, enemyUnits[indexOfUnitInRange])) { 
+                        
+                        // if yes then check if any other unit is in the range, if yes end round for that unit
+                        int unitInRangeIndex = checkIfUnitInRangeOfEnemy(enemyUnits, enemyUnitsNum, unit);
+                        if (unitInRangeIndex == -1) {
+                            return;
+                        }
+
+                        Point furthestPossiblePoint = generateValidatedMovePointForUnit(unit, enemyUnits, enemyUnitsNum, enemyBaseDest, mapArray, numRows, numCols);
+                        printf("Unit type: %c and ID: %d, defeated unit type: %c and ID: %d\n", unit.type, unit.ID, enemyUnits[indexOfUnitInRange].type, enemyUnits[indexOfUnitInRange].ID);
+
                         commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, '0', furthestPossiblePoint.x, furthestPossiblePoint.y);
                         (*comStringsNum)++;
-
-                    } else {
+                        moved = true;
+                        removeUnitFromEnemyListAtIndex(enemyUnits, enemyUnitsNum, indexOfUnitInRange); // if unit is defeated also remove it from enemy list
                         return;
-                    }
-                    
-                    
+
+                    } 
                 }
-            }
-
-            // if you didn't attack because noone was in range
-            if(!unitDefeated) {
-                
-            }
-
-
-
             
+            // if you attacked end the turn
+            if(attacked) return;
+
+            // otherwise, if no unit is in range move the unit and then try to attack
+
+                        Point furthestPossiblePoint = generateValidatedMovePointForUnit(unit, enemyUnits, enemyUnitsNum, enemyBaseDest, mapArray, numRows, numCols);
+
+                        commandsStrings[*comStringsNum] = generateUnitCommand(MOVE_COMMAND, unit.ID, 0, '0', furthestPossiblePoint.x, furthestPossiblePoint.y);
+                        (*comStringsNum)++;
+                        moved = true;
+
+                        // then check if in range of attack - if so - attack  
+
+                        int enemyUnitInRangeIndex = checkIfUnitInRangeOfEnemy(enemyUnits, enemyUnitsNum, unit);
+                        commandsStrings[*comStringsNum] = generateUnitCommand(ATTACK_COMMAND, unit.ID, enemyUnits[enemyUnitInRangeIndex].ID, '0', 0, 0);
+                        (*comStringsNum)++;
+                        attacked = true;
+                        return;
+                        
+
             // If you happen to be in range to attack enemy unit - attack
             //  if u kill a unit, also make a move
             //  if not, return
-            // If, not assert closest path to enemy base
-                // Check for possible enemy units to not stand on them
-                // If you happen to collide with enemy unit, move one path unit closer
-                // If you haven't attacked before, check for attack again
+            // If not assert closest path to enemy base and move
+             // Check for possible enemy units to not stand on them
+             // If you happen to collide with enemy unit, move one path unit closer
+            // If you haven't attacked before, check for attack again and attack
 
             // do something if not worker
 
