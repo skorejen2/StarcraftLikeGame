@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <math.h>
 #include <ctype.h>
-#include <Windows.h>
 #include <stdbool.h>
 #include <limits.h>
 #include <string.h>
