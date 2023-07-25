@@ -1152,9 +1152,9 @@ char *generateCommandBasedOnFile(char *statusFileName, char *mapFileName, char *
 
     // makeUnitDecisions(enemyUnits, enemyUnitsNum, numRows, numCols, gameStatus, commandsStrings, comStringsNum);
 
-    freeAllocatedMapMemory(mapArray, numRows);
-    freeAllocatedGameStatusMemory(&gameStatus);
-    free(enemyUnits);
+    // freeAllocatedMapMemory(mapArray, numRows);
+    // freeAllocatedGameStatusMemory(&gameStatus);
+    // free(enemyUnits);
     // open file in read mode
 
     return commandsStrings[0];
